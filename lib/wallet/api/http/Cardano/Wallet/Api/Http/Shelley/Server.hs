@@ -2156,7 +2156,7 @@ mkApiTransactionFromInfo ti wrk wid deposit info metadataSchema = do
   where
     drop2nd (a,_,c) = (a,c)
     status :: Lens' (ApiTransaction n) (Maybe ApiBlockReference)
-    status = case info ^. (#txInfoMeta . #status) of
+    status = case info ^. #txInfoMeta . #status of
         Pending  -> #pendingSince
         InLedger -> #insertedAt
         Expired  -> #pendingSince
@@ -3583,7 +3583,7 @@ migrateWallet ctx withdrawalType (ApiT wid) postData = do
             mkApiTransaction
                 (timeInterpreter (ctx ^. networkLayer))
                 wrk wid
-                (#pendingSince)
+                #pendingSince
                 MkApiTransactionParams
                     { txId = tx ^. #txId
                     , txFee = tx ^. #fee
@@ -4122,7 +4122,7 @@ mkApiTransaction timeInterpreter wrk wid setTimeReference tx = do
         , depth = Nothing
         , direction = ApiT (tx ^. (#txMeta . #direction))
         , inputs =
-            [ ApiTxInput (fmap (toAddressAmount @n) o) (ApiT i)
+            [ ApiTxInput (toAddressAmount @n <$> o) (ApiT i)
             | (i, o) <- tx ^. #txInputs
             ]
         , collateral =
@@ -4133,7 +4133,7 @@ mkApiTransaction timeInterpreter wrk wid setTimeReference tx = do
         , collateralOutputs = ApiAsArray $
             toAddressAmount @n <$> tx ^. #txCollateralOutput
         , withdrawals = mkApiWithdrawal @n <$> Map.toList (tx ^. #txWithdrawals)
-        , status = ApiT (tx ^. (#txMeta . #status))
+        , status = ApiT (tx ^. #txMeta . #status)
         , metadata = TxMetadataWithSchema (tx ^. #txMetadataSchema)
             <$> tx ^. #txMetadata
         , scriptValidity = ApiT <$> tx ^. #txScriptValidity
@@ -4247,7 +4247,7 @@ makeApiBlockReference
 makeApiBlockReference ti sl height = do
     slotId <- interpretQuery ti (toSlotId sl)
     slotTime <- interpretQuery ti (slotToUTCTime sl)
-    return $ ApiBlockReference
+    pure ApiBlockReference
         { absoluteSlotNumber = ApiT sl
         , slotId = apiSlotId slotId
         , time = slotTime
