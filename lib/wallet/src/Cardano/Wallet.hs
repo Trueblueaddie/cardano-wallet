@@ -225,6 +225,8 @@ import Cardano.BM.Data.Tracer
     ( HasPrivacyAnnotation (..), HasSeverityAnnotation (..) )
 import Cardano.Crypto.Wallet
     ( toXPub )
+import Cardano.Pool.Types
+    ( PoolId )
 import Cardano.Slotting.Slot
     ( SlotNo (..) )
 import Cardano.Wallet.Address.Book
@@ -604,8 +606,6 @@ import qualified Cardano.Address.Style.Shelley as CAShelley
 import qualified Cardano.Api as Cardano
 import qualified Cardano.Api.Shelley as Cardano
 import qualified Cardano.Crypto.Wallet as CC
-import Cardano.Pool.Types
-    ( PoolId )
 import qualified Cardano.Wallet.Checkpoints.Policy as CP
 import qualified Cardano.Wallet.CoinSelection as CS
 import qualified Cardano.Wallet.DB.WalletState as WS
@@ -721,35 +721,24 @@ type HasNetworkLayer m = HasType (NetworkLayer m Block)
 
 type HasTransactionLayer k ktype = HasType (TransactionLayer k ktype SealedTx)
 
-dbLayer
-    :: forall m s k ctx. HasDBLayer m s k ctx
-    => Lens' ctx (DBLayer m s k)
-dbLayer =
-    typed @(DBLayer m s k)
+dbLayer :: forall m s k ctx. HasDBLayer m s k ctx => Lens' ctx (DBLayer m s k)
+dbLayer = typed @(DBLayer m s k)
 
-genesisData
-    :: forall ctx. HasGenesisData ctx
-    => Lens' ctx (Block, NetworkParameters)
-genesisData =
-    typed @(Block, NetworkParameters)
+genesisData ::
+    forall ctx. HasGenesisData ctx => Lens' ctx (Block, NetworkParameters)
+genesisData = typed @(Block, NetworkParameters)
 
-logger
-    :: forall m msg ctx. HasLogger m msg ctx
-    => Lens' ctx (Tracer m msg)
-logger =
-    typed @(Tracer m msg)
+logger :: forall m msg ctx. HasLogger m msg ctx => Lens' ctx (Tracer m msg)
+logger = typed @(Tracer m msg)
 
-networkLayer
-    :: forall m ctx. (HasNetworkLayer m ctx)
-    => Lens' ctx (NetworkLayer m Block)
-networkLayer =
-    typed @(NetworkLayer m Block)
+networkLayer ::
+    forall m ctx. (HasNetworkLayer m ctx) => Lens' ctx (NetworkLayer m Block)
+networkLayer = typed @(NetworkLayer m Block)
 
-transactionLayer
-    :: forall k ktype ctx. (HasTransactionLayer k ktype ctx)
+transactionLayer ::
+    forall k ktype ctx. (HasTransactionLayer k ktype ctx)
     => Lens' ctx (TransactionLayer k ktype SealedTx)
-transactionLayer =
-    typed @(TransactionLayer k ktype SealedTx)
+transactionLayer = typed @(TransactionLayer k ktype SealedTx)
 
 {-------------------------------------------------------------------------------
                                    Wallet
@@ -3498,7 +3487,8 @@ guardSoftIndex
     => DerivationIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Soft 'CredFromKeyK) m (Index 'Soft whatever)
 guardSoftIndex ix =
-    if ix > DerivationIndex (getIndex @'Soft maxBound) || ix < DerivationIndex (getIndex @'Soft minBound)
+    if ix > DerivationIndex (getIndex @'Soft maxBound) ||
+       ix < DerivationIndex (getIndex @'Soft minBound)
     then throwE $ ErrIndexOutOfBound minBound maxBound ix
     else pure (Index $ getDerivationIndex ix)
 
@@ -3507,7 +3497,8 @@ guardHardIndex
     => DerivationIndex
     -> ExceptT (ErrInvalidDerivationIndex 'Hardened level) m (Index 'Hardened whatever)
 guardHardIndex ix =
-    if ix > DerivationIndex (getIndex @'Hardened maxBound) || ix < DerivationIndex (getIndex @'Hardened minBound)
+    if ix > DerivationIndex (getIndex @'Hardened maxBound) ||
+       ix < DerivationIndex (getIndex @'Hardened minBound)
     then throwE $ ErrIndexOutOfBound minBound maxBound ix
     else pure (Index $ getDerivationIndex ix)
 
@@ -3908,11 +3899,7 @@ guardJoin knownPools delegation pid mRetirementEpochInfo = do
   where
     WalletDelegation {active, next} = delegation
 
-guardQuit
-    :: WalletDelegation
-    -> Withdrawal
-    -> Coin
-    -> Either ErrCannotQuit ()
+guardQuit :: WalletDelegation -> Withdrawal -> Coin -> Either ErrCannotQuit ()
 guardQuit WalletDelegation{active,next} wdrl rewards = do
     let last_ = maybe active (view #status) $ lastMay next
 
@@ -4166,7 +4153,7 @@ posAndNegFromCardanoValue = foldMap go . Cardano.valueToList
        -> (TokenBundle.TokenBundle, TokenBundle.TokenBundle)
     go (Cardano.AdaAssetId, q) = partition q $
         TokenBundle.fromCoin . Coin.fromNatural
-    go ((Cardano.AssetId policy name), q) = partition q $ \n ->
+    go (Cardano.AssetId policy name, q) = partition q $ \n ->
         TokenBundle.fromFlatList (Coin 0)
             [ ( TokenBundle.AssetId (mkPolicyId policy) (mkTokenName name)
               , TokenQuantity n
