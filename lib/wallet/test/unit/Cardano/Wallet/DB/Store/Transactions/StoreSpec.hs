@@ -16,11 +16,12 @@ import Cardano.DB.Sqlite
 import Cardano.Wallet.DB.Arbitrary
     ()
 import Cardano.Wallet.DB.Fixtures
-    ( StoreProperty, logScale, withDBInMemory, withStoreProp )
+    ( StoreProperty, assertWith, logScale, withDBInMemory, withStoreProp )
 import Cardano.Wallet.DB.Sqlite.Types
     ( TxId (TxId) )
 import Cardano.Wallet.DB.Store.Transactions.Model
     ( DeltaTxSet (..)
+    , TxRelation (..)
     , TxSet (..)
     , collateralIns
     , decorateTxIns
@@ -30,9 +31,17 @@ import Cardano.Wallet.DB.Store.Transactions.Model
     , mkTxSet
     )
 import Cardano.Wallet.DB.Store.Transactions.Store
-    ( mkStoreTransactions )
+    ( DBTxSet (getTxById), mkDBTxSet, mkStoreTransactions )
 import Cardano.Wallet.Primitive.Types.Tx
     ( Tx (..) )
+import Control.Monad
+    ( forM_ )
+import Control.Monad.IO.Class
+    ( MonadIO (..) )
+import Data.DBVar
+    ( Store (..) )
+import Data.Delta
+    ( Delta (..) )
 import Data.Generics.Internal.VL
     ( set )
 import Test.DBVar
@@ -40,11 +49,21 @@ import Test.DBVar
 import Test.Hspec
     ( Spec, around, describe, it )
 import Test.QuickCheck
-    ( Gen, Property, arbitrary, elements, forAll, frequency, property, (===) )
+    ( Gen
+    , Property
+    , arbitrary
+    , elements
+    , forAll
+    , frequency
+    , generate
+    , property
+    , (===)
+    )
 
 import qualified Cardano.Wallet.Primitive.Types.Coin as W
 import qualified Cardano.Wallet.Primitive.Types.Tx as W
 import qualified Data.Map.Strict as Map
+import qualified Data.Map.Strict as M
 
 spec :: Spec
 spec = do
@@ -52,6 +71,9 @@ spec = do
         describe "Transactions store" $ do
             it "respects store laws" $
                 property . prop_StoreLaws
+        describe "DBTxSet" $
+                it "can be queried by id" $
+                    property . prop_getTxById
 
     describe "TxOut decoration" $ do
         it
@@ -62,7 +84,6 @@ spec = do
             "reports a transaction where collateral inputs point \
             \to all other transactions output"
             $ property prop_DecorateLinksTxCollateralsToTxOuts
-
 {-----------------------------------------------------------------------------
     Properties
 ------------------------------------------------------------------------------}
@@ -149,3 +170,21 @@ genDeltas (TxSet pile) =
                     else elements (Map.keys pile)
             )
         ]
+
+{-
+A unit test for the implementation of getById described above. I suggest to reuse the Store functionality for creating this test:
+
+    First, a value txs :: TxSet is created at random
+
+    Then, a writeS mkStoreTransactions is used to store this value in the database.
+
+    Then, getById on the database is compared to Map.Lookup . relations applied to the value txs.
+    -}
+
+prop_getTxById :: StoreProperty
+prop_getTxById = withStoreProp $ \runQ -> do
+    txs :: TxSet <- liftIO $ generate $ (`apply` mempty) <$> genDeltas mempty
+    runQ $ writeS mkStoreTransactions txs
+    forM_ (M.assocs $ relations txs) $ \(txId, tx) -> do
+        Just tx' <- runQ $ getTxById mkDBTxSet txId
+        assertWith "relation is consistent" $ tx == tx'
