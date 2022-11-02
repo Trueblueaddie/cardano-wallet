@@ -241,6 +241,9 @@ RSpec.describe 'Cardano Wallet E2E tests', :all, :e2e do
                                                             policy: policy })
       mint = run_script(mint_script, payload_mint)
       burn = run_script(burn_script, payload_burn)
+      puts(JSON.pretty_generate payload_mint)
+      puts(JSON.pretty_generate payload_burn)
+
 
       # verify that decoded balanced tx is the same as signed tx
       expect(mint[:tx_balanced].parsed_response).to eq mint[:tx_signed].parsed_response
@@ -257,6 +260,28 @@ RSpec.describe 'Cardano Wallet E2E tests', :all, :e2e do
       expect(mint[:tx_balanced]['burn']['tokens']).to eq []
       expect(burn[:tx_balanced]['mint']['tokens']).to eq []
       expect(burn[:tx_balanced]['burn']['tokens']).to eq assets
+
+      # examine tx history
+      mint_tx = SHELLEY.transactions.get(@wid, mint[:tx_id])
+      burn_tx = SHELLEY.transactions.get(@wid, burn[:tx_id])
+
+      expect(mint_tx['inputs'].to_s).to include 'address'
+      expect(mint_tx['inputs'].to_s).to include 'amount'
+      expect(mint_tx['direction']).to eq 'outgoing'
+      expect(mint_tx['outputs']).not_to eq []
+      expect(mint_tx['script_validity']).to eq 'valid'
+      expect(mint_tx['script_integrity']).to include 'script_data'
+      expect(mint_tx['status']).to eq 'in_ledger'
+      expect(mint_tx['collateral']).not_to eq []
+      expect(mint_tx['collateral_outputs']).to eq []
+      expect(mint_tx['metadata']).to eq nil
+      expect(mint_tx['deposit_taken']).to eq({ 'quantity' => 0, 'unit' => 'lovelace' })
+      expect(mint_tx['deposit_returned']).to eq({ 'quantity' => 0, 'unit' => 'lovelace' })
+      expect(mint_tx['withdrawals']).to eq []
+      expect(mint_tx['mint']['tokens']).to eq assets
+      expect(mint_tx['burn']['tokens']).to eq []
+
+
     end
 
     it 'withdrawal' do
