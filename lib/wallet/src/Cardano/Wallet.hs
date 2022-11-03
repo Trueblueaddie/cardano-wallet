@@ -238,8 +238,7 @@ import Cardano.Wallet.Checkpoints
     , sparseCheckpoints
     )
 import Cardano.Wallet.CoinSelection
-    ( PreSelection
-    , Selection
+    ( Selection
     , SelectionBalanceError (..)
     , SelectionCollateralRequirement (..)
     , SelectionConstraints (..)
@@ -467,6 +466,7 @@ import Cardano.Wallet.Transaction
     , ErrMoreSurplusNeeded (ErrMoreSurplusNeeded)
     , ErrSignTx (..)
     , ErrUpdateSealedTx (..)
+    , PreSelection
     , TransactionCtx (..)
     , TransactionLayer (..)
     , TxFeeAndChange (TxFeeAndChange)
